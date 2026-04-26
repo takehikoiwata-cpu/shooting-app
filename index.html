@@ -13,7 +13,43 @@ canvas { display: block; }
 #overlay h1 { font-size: 2rem; margin-bottom: 1rem; color: #6af; }
 #overlay p { margin-bottom: 0.5rem; color: #aaa; }
 #startBtn { margin-top: 1rem; padding: 12px 32px; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
-
+#continueBtn {
+  margin-top: 1rem;
+  padding: 12px 32px;
+  background: #22c55e;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+#joystick-area {
+  position: fixed;
+  bottom: 30px;
+  left: 30px;
+  width: 120px;
+  height: 120px;
+  pointer-events: all;
+}
+#joystick-base {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.3);
+  position: absolute;
+}
+#joystick-stick {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  border: 2px solid rgba(255,255,255,0.6);
+  position: absolute;
+  top: 35px;
+  left: 35px;
+  pointer-events: none;
+}
 </style>
 </head>
 <body>
@@ -99,10 +135,10 @@ function update() {
   // プレイヤー移動
   if (keys['ArrowLeft']) player.x -= player.speed;
   if (keys['ArrowRight']) player.x += player.speed;
-  if (touchX !== null) {
-    const dx = touchX - player.x;
-    if (Math.abs(dx) > 4) player.x += Math.sign(dx) * player.speed;
-  }
+  if (joystickActive) {
+  player.x += joystickDX * player.speed;
+  player.y += joystickDY * player.speed;
+}
   player.x = Math.max(20, Math.min(W-20, player.x));
 
   // 射撃
@@ -392,7 +428,44 @@ document.getElementById('ctrl-right').addEventListener('touchstart', e => { e.pr
 document.getElementById('ctrl-right').addEventListener('touchend', e => { e.preventDefault(); keys['ArrowRight'] = false; }, {passive:false});
 document.getElementById('ctrl-fire').addEventListener('touchstart', e => { e.preventDefault(); shooting = true; }, {passive:false});
 document.getElementById('ctrl-fire').addEventListener('touchend', e => { e.preventDefault(); shooting = false; }, {passive:false});
-</script>
+// ジョイスティック
+const joystickArea = document.getElementById('joystick-area');
+const stick = document.getElementById('joystick-stick');
+let joystickActive = false;
+let joystickDX = 0, joystickDY = 0;
 
+joystickArea.addEventListener('touchstart', e => {
+  e.preventDefault();
+  joystickActive = true;
+}, {passive:false});
+
+joystickArea.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const rect = joystickArea.getBoundingClientRect();
+  const cx = rect.left + 60, cy = rect.top + 60;
+  const tx = e.touches[0].clientX - cx;
+  const ty = e.touches[0].clientY - cy;
+  const dist = Math.sqrt(tx*tx + ty*ty);
+  const maxDist = 40;
+  const nx = dist > maxDist ? tx/dist*maxDist : tx;
+  const ny = dist > maxDist ? ty/dist*maxDist : ty;
+  joystickDX = nx / maxDist;
+  joystickDY = ny / maxDist;
+  stick.style.left = (35 + nx) + 'px';
+  stick.style.top  = (35 + ny) + 'px';
+}, {passive:false});
+
+joystickArea.addEventListener('touchend', e => {
+  e.preventDefault();
+  joystickActive = false;
+  joystickDX = 0; joystickDY = 0;
+  stick.style.left = '35px';
+  stick.style.top  = '35px';
+}, {passive:false});
+</script>
+<div id="joystick-area">
+  <div id="joystick-base"></div>
+  <div id="joystick-stick"></div>
+</div>
 </body>
 </html>
