@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=400, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>シューティングゲーム</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -13,28 +13,7 @@ canvas { display: block; }
 #overlay h1 { font-size: 2rem; margin-bottom: 1rem; color: #6af; }
 #overlay p { margin-bottom: 0.5rem; color: #aaa; }
 #startBtn { margin-top: 1rem; padding: 12px 32px; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
-#controls {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 400px;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 20px;
-  pointer-events: none;
-}
-#ctrl-left, #ctrl-right, #ctrl-fire {
-  width: 70px; height: 70px;
-  background: rgba(255,255,255,0.15);
-  border: 2px solid rgba(255,255,255,0.3);
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; color: #fff;
-  pointer-events: all;
-  user-select: none;
-}
-#ctrl-fire { background: rgba(99,102,241,0.4); font-size: 20px; }
+
 </style>
 </head>
 <body>
@@ -390,10 +369,6 @@ document.getElementById('ctrl-right').addEventListener('touchend', e => { e.prev
 document.getElementById('ctrl-fire').addEventListener('touchstart', e => { e.preventDefault(); shooting = true; }, {passive:false});
 document.getElementById('ctrl-fire').addEventListener('touchend', e => { e.preventDefault(); shooting = false; }, {passive:false});
 </script>
-<div id="controls">
-  <div id="ctrl-left">←</div>
-  <div id="ctrl-fire">🔥</div>
-  <div id="ctrl-right">→</div>
-</div>
+
 </body>
 </html>
