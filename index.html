@@ -133,13 +133,16 @@ function overlap(a, b) {
 
 function update() {
   // プレイヤー移動
-  if (keys['ArrowLeft']) player.x -= player.speed;
-  if (keys['ArrowRight']) player.x += player.speed;
+  if (keys['ArrowLeft'])  player.x -= player.speed;
+if (keys['ArrowRight']) player.x += player.speed;
+if (keys['ArrowUp'])    player.y -= player.speed;
+if (keys['ArrowDown'])  player.y += player.speed;
   if (joystickActive) {
   player.x += joystickDX * player.speed;
   player.y += joystickDY * player.speed;
 }
   player.x = Math.max(20, Math.min(W-20, player.x));
+player.y = Math.max(20, Math.min(H-20, player.y));
 
   // 射撃
   if (keys[' '] || shooting) {
