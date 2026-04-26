@@ -6,61 +6,41 @@
 <title>シューティングゲーム</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+html, body { max-width: 400px; margin: 0 auto; overflow: hidden; touch-action: none; }
+body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; }
 canvas { display: block; }
-#ui { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 400px; display: flex; justify-content: space-between; padding: 10px; color: #fff; font-family: monospace; font-size: 16px; pointer-events: none; }
-#overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; font-family: monospace; display: block; }
+#ui { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 400px; display: flex; justify-content: space-between; padding: 10px; color: #fff; font-family: monospace; font-size: 16px; pointer-events: none; z-index: 10; }
+#overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; font-family: monospace; display: block; z-index: 20; }
 #overlay h1 { font-size: 2rem; margin-bottom: 1rem; color: #6af; }
 #overlay p { margin-bottom: 0.5rem; color: #aaa; }
 #startBtn { margin-top: 1rem; padding: 12px 32px; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
-#continueBtn {
-  margin-top: 1rem;
-  padding: 12px 32px;
-  background: #22c55e;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-}
-#joystick-area {
-  position: fixed;
-  bottom: 30px;
-  left: 30px;
-  width: 120px;
-  height: 120px;
-  pointer-events: all;
-}
-#joystick-base {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.1);
-  border: 2px solid rgba(255,255,255,0.3);
-  position: absolute;
-}
-#joystick-stick {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.4);
-  border: 2px solid rgba(255,255,255,0.6);
-  position: absolute;
-  top: 35px;
-  left: 35px;
-  pointer-events: none;
-}
+#continueBtn { margin-top: 1rem; padding: 12px 32px; background: #22c55e; color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+#joystick-area { position: fixed; bottom: 30px; left: 30px; width: 120px; height: 120px; pointer-events: all; z-index: 10; }
+#joystick-base { width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); position: absolute; }
+#joystick-stick { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.4); border: 2px solid rgba(255,255,255,0.6); position: absolute; top: 35px; left: 35px; pointer-events: none; }
+#ctrl-fire { position: fixed; bottom: 45px; right: 40px; width: 80px; height: 80px; border-radius: 50%; background: rgba(99,102,241,0.5); border: 2px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; font-size: 28px; color: #fff; pointer-events: all; z-index: 10; user-select: none; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="ui"><span id="score">SCORE: 0</span><span id="lives">❤️❤️❤️</span><span id="level">LEVEL: 1</span></div>
+<div id="ui">
+  <span id="score">SCORE: 0</span>
+  <span id="lives">❤️❤️❤️</span>
+  <span id="level">LEVEL: 1</span>
+</div>
 <div id="overlay">
   <h1>🚀 SHOOTER</h1>
-  <p>← → キーで移動、スペースで射撃</p>
-  <p>スマホはタップ＆スライドで操作</p>
+  <p>← → ↑ ↓ キーで移動</p>
+  <p>スペースで射撃</p>
+  <p>スマホ：左のスティックで移動、右のボタンで射撃</p>
   <button id="startBtn">ゲームスタート</button>
 </div>
+<div id="joystick-area">
+  <div id="joystick-base"></div>
+  <div id="joystick-stick"></div>
+</div>
+<div id="ctrl-fire">🔥</div>
+
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -71,8 +51,12 @@ canvas.height = H;
 let score, lives, level, gameRunning;
 let player, bullets, enemies, enemyBullets, particles, boss;
 let keys = {};
-let touchX = null, shooting = false;
+let shooting = false;
 let spawnTimer, bossActive, nextBossScore;
+
+// ジョイスティック変数（updateより前に定義）
+let joystickActive = false;
+let joystickDX = 0, joystickDY = 0;
 
 function initGame() {
   score = 0; lives = 3; level = 1; gameRunning = false;
@@ -107,40 +91,32 @@ function spawnEnemy() {
 function spawnBoss() {
   bossActive = true;
   const hp = 20 + level * 15;
-  boss = {
-    x: W/2, y: 80, w: 72, h: 56,
-    hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3,
-    shootTimer: 0, angle: 0,
-    phase: 1
-  };
+  boss = { x: W/2, y: 80, w: 72, h: 56, hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3, shootTimer: 0, angle: 0, phase: 1 };
 }
 
 function addParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
-    particles.push({
-      x, y,
-      vx: (Math.random()-0.5)*6,
-      vy: (Math.random()-0.5)*6,
-      life: 1, color
-    });
+    particles.push({ x, y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 1, color });
   }
 }
 
 function overlap(a, b) {
-  return Math.abs(a.x - b.x) < (a.w + b.w)/2 &&
-         Math.abs(a.y - b.y) < (a.h + b.h)/2;
+  return Math.abs(a.x - b.x) < (a.w + b.w)/2 && Math.abs(a.y - b.y) < (a.h + b.h)/2;
 }
 
 function update() {
-  // プレイヤー移動
+  // キーボード移動
   if (keys['ArrowLeft'])  player.x -= player.speed;
-if (keys['ArrowRight']) player.x += player.speed;
-if (keys['ArrowUp'])    player.y -= player.speed;
-if (keys['ArrowDown'])  player.y += player.speed;
+  if (keys['ArrowRight']) player.x += player.speed;
+  if (keys['ArrowUp'])    player.y -= player.speed;
+  if (keys['ArrowDown'])  player.y += player.speed;
+
+  // ジョイスティック移動
   if (joystickActive) {
-  player.x += joystickDX * player.speed;
-  player.y += joystickDY * player.speed;
-}
+    player.x += joystickDX * player.speed;
+    player.y += joystickDY * player.speed;
+  }
+
   player.x = Math.max(20, Math.min(W-20, player.x));
   player.y = Math.max(20, Math.min(H-20, player.y));
 
@@ -167,9 +143,7 @@ if (keys['ArrowDown'])  player.y += player.speed;
   }
 
   // ボス出現
-  if (!bossActive && score >= nextBossScore && enemies.length === 0) {
-    spawnBoss();
-  }
+  if (!bossActive && score >= nextBossScore && enemies.length === 0) spawnBoss();
 
   // 敵移動＆射撃
   for (let i = enemies.length-1; i >= 0; i--) {
@@ -177,7 +151,6 @@ if (keys['ArrowDown'])  player.y += player.speed;
     e.y += e.speed;
     if (e.type === 'zigzag') e.x += Math.sin(e.y / 25) * 2.5;
     e.x = Math.max(20, Math.min(W-20, e.x));
-
     e.shootTimer--;
     if (e.shootTimer <= 0) {
       e.shootTimer = e.type === 'tank' ? 45 : 90;
@@ -185,14 +158,8 @@ if (keys['ArrowDown'])  player.y += player.speed;
       const dist = Math.sqrt(dx*dx+dy*dy) || 1;
       enemyBullets.push({ x:e.x, y:e.y, vx:dx/dist*2.5, vy:dy/dist*2.5, w:8, h:8 });
     }
-
     if (e.y > H+20) { enemies.splice(i, 1); continue; }
-
-    // 敵→プレイヤー衝突
-    if (overlap(e, { x:player.x, y:player.y, w:28, h:28 })) {
-      enemies.splice(i, 1);
-      playerHit();
-    }
+    if (overlap(e, { x:player.x, y:player.y, w:28, h:28 })) { enemies.splice(i, 1); playerHit(); }
   }
 
   // ボス更新
@@ -219,10 +186,7 @@ if (keys['ArrowDown'])  player.y += player.speed;
     const b = enemyBullets[i];
     b.x += b.vx; b.y += b.vy;
     if (b.y > H+20 || b.x < -20 || b.x > W+20) { enemyBullets.splice(i, 1); continue; }
-    if (overlap(b, { x:player.x, y:player.y, w:28, h:28 })) {
-      enemyBullets.splice(i, 1);
-      playerHit();
-    }
+    if (overlap(b, { x:player.x, y:player.y, w:28, h:28 })) { enemyBullets.splice(i, 1); playerHit(); }
   }
 
   // 自弾→敵 衝突
@@ -243,7 +207,6 @@ if (keys['ArrowDown'])  player.y += player.speed;
         break;
       }
     }
-    // 自弾→ボス
     if (!hit && boss && overlap(bullets[bi], boss)) {
       hit = true;
       boss.hp--;
@@ -291,21 +254,16 @@ function gameOver() {
     <button id="startBtn">最初から</button>
   `;
   o.style.display = 'block';
-
   document.getElementById('continueBtn').addEventListener('click', () => {
-    // スコアとレベルを引き継いでリスタート
     bullets = []; enemies = []; enemyBullets = []; particles = [];
     boss = null; bossActive = false; spawnTimer = 0;
-    lives = 3;
-    score = savedScore;
-    level = savedLevel;
+    lives = 3; score = savedScore; level = savedLevel;
     nextBossScore = savedScore + 300 + savedLevel * 100;
-    player = { x: W/2, y: H-130, w: 36, h: 36, speed: 5, shootCooldown: 0 };
+    player = { x: W/2, y: H-180, w: 36, h: 36, speed: 5, shootCooldown: 0 };
     gameRunning = true;
     o.style.display = 'none';
     updateUI();
   });
-
   document.getElementById('startBtn').addEventListener('click', startGame);
 }
 
@@ -365,39 +323,24 @@ function drawBoss() {
 function draw() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
-
-  // 星
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 60; i++) {
     const x = (i*137 + Date.now()/20) % W;
     const y = (i*97  + Date.now()/8)  % H;
     ctx.fillRect(x, y, i%4===0?2:1, i%4===0?2:1);
   }
-
   drawPlayer();
   enemies.forEach(drawEnemy);
   if (boss) drawBoss();
-
-  // 自弾
   ctx.shadowColor = '#ff0'; ctx.shadowBlur = 8;
   ctx.fillStyle = '#ff0';
   bullets.forEach(b => ctx.fillRect(b.x-3, b.y-7, 6, 14));
   ctx.shadowBlur = 0;
-
-  // 敵弾
   ctx.shadowColor = '#f55'; ctx.shadowBlur = 6;
   ctx.fillStyle = '#f55';
-  enemyBullets.forEach(b => {
-    ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
-  });
+  enemyBullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill(); });
   ctx.shadowBlur = 0;
-
-  // パーティクル
-  particles.forEach(p => {
-    ctx.globalAlpha = p.life;
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x-2, p.y-2, 4, 4);
-  });
+  particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x-2, p.y-2, 4, 4); });
   ctx.globalAlpha = 1;
 }
 
@@ -413,23 +356,18 @@ function startGame() {
   document.getElementById('overlay').style.display = 'none';
 }
 
+// キーボード
 document.addEventListener('keydown', e => { keys[e.key] = true; if(e.key===' ') e.preventDefault(); });
 document.addEventListener('keyup',   e => { keys[e.key] = false; });
 
-canvas.addEventListener('touchstart', e => { e.preventDefault(); touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left; shooting = true; }, {passive:false});
-canvas.addEventListener('touchmove',  e => { e.preventDefault(); touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left; }, {passive:false});
-canvas.addEventListener('touchend',   e => { e.preventDefault(); touchX = null; shooting = false; }, {passive:false});
-
-document.getElementById('startBtn').addEventListener('click', startGame);
-
-initGame();
-loop();
+// 射撃ボタン
+const fireBtn = document.getElementById('ctrl-fire');
+fireBtn.addEventListener('touchstart', e => { e.preventDefault(); shooting = true; }, {passive:false});
+fireBtn.addEventListener('touchend',   e => { e.preventDefault(); shooting = false; }, {passive:false});
 
 // ジョイスティック
 const joystickArea = document.getElementById('joystick-area');
 const stick = document.getElementById('joystick-stick');
-let joystickActive = false;
-let joystickDX = 0, joystickDY = 0;
 
 joystickArea.addEventListener('touchstart', e => {
   e.preventDefault();
@@ -459,10 +397,10 @@ joystickArea.addEventListener('touchend', e => {
   stick.style.left = '35px';
   stick.style.top  = '35px';
 }, {passive:false});
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+initGame();
+loop();
 </script>
-<div id="joystick-area">
-  <div id="joystick-base"></div>
-  <div id="joystick-stick"></div>
-</div>
 </body>
 </html>
