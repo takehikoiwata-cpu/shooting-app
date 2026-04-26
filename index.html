@@ -240,9 +240,33 @@ function playerHit() {
 
 function gameOver() {
   gameRunning = false;
+  const savedScore = score;
+  const savedLevel = level;
   const o = document.getElementById('overlay');
-  o.innerHTML = '<h1>GAME OVER</h1><p>SCORE: '+score+'</p><p>LEVEL: '+level+'</p><button id="startBtn">もう一度</button>';
+  o.innerHTML = `
+    <h1>GAME OVER</h1>
+    <p>SCORE: ${score}</p>
+    <p>LEVEL: ${level}</p>
+    <button id="continueBtn">コンティニュー</button>
+    <br><br>
+    <button id="startBtn">最初から</button>
+  `;
   o.style.display = 'block';
+
+  document.getElementById('continueBtn').addEventListener('click', () => {
+    // スコアとレベルを引き継いでリスタート
+    bullets = []; enemies = []; enemyBullets = []; particles = [];
+    boss = null; bossActive = false; spawnTimer = 0;
+    lives = 3;
+    score = savedScore;
+    level = savedLevel;
+    nextBossScore = savedScore + 300 + savedLevel * 100;
+    player = { x: W/2, y: H-130, w: 36, h: 36, speed: 5, shootCooldown: 0 };
+    gameRunning = true;
+    o.style.display = 'none';
+    updateUI();
+  });
+
   document.getElementById('startBtn').addEventListener('click', startGame);
 }
 
