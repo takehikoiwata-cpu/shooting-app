@@ -96,9 +96,9 @@ function spawnBoss() {
   boss = { x: W/2, y: 80, w: 72, h: 56, hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3, shootTimer: 0, angle: 0, phase: 1 };
 }
 
-function spawnItem(x, y) {
-  items.push({ x, y, w: 20, h: 20, vy: 1.5 });
-}
+function spawnItem(x, y, type) {
+  items.push({ x, y, w: 20, h: 20, vy: 1.5, type });
+}}
 
 function addParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
@@ -212,8 +212,8 @@ function update() {
           const pts = {normal:10, fast:20, zigzag:30, tank:40};
           score += pts[enemies[ei].type] || 10;
           addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 10);
-          if (enemies[ei].type === 'tank') spawnItem(enemies[ei].x, enemies[ei].y);
-          enemies.splice(ei, 1);
+if (enemies[ei].type === 'tank') spawnItem(enemies[ei].x, enemies[ei].y, 'power');
+if (enemies[ei].type === 'zigzag') spawnItem(enemies[ei].x, enemies[ei].y, 'life');          enemies.splice(ei, 1);
           updateUI();
         }
         break;
@@ -248,13 +248,19 @@ function update() {
   for (let i = items.length-1; i >= 0; i--) {
     items[i].y += items[i].vy;
     if (items[i].y > H+20) { items.splice(i, 1); continue; }
-    if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
-      items.splice(i, 1);
-      powerUp = true;
-      powerUpTimer = 1800;
-      addParticles(player.x, player.y, '#ff0', 15);
-    }
+if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
+  const type = items[i].type;
+  items.splice(i, 1);
+  if (type === 'power') {
+    powerUp = true;
+    powerUpTimer = 1800;
+    addParticles(player.x, player.y, '#ff0', 15);
+  } else if (type === 'life') {
+    lives = Math.min(lives + 1, 5);
+    addParticles(player.x, player.y, '#f55', 15);
+    updateUI();
   }
+}  }
 
   // パワーアップタイマー
   if (powerUp) {
@@ -370,9 +376,10 @@ function draw() {
   if (boss) drawBoss();
 
   // アイテム描画
-  items.forEach(item => {
-    ctx.save();
-    ctx.translate(item.x, item.y);
+items.forEach(item => {
+  ctx.save();
+  ctx.translate(item.x, item.y);
+  if (item.type === 'power') {
     ctx.fillStyle = '#ff0';
     ctx.shadowColor = '#ff0';
     ctx.shadowBlur = 12;
@@ -382,9 +389,19 @@ function draw() {
     ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'center';
     ctx.fillText('2x', 0, 4);
-    ctx.restore();
-  });
-
+  } else if (item.type === 'life') {
+    ctx.fillStyle = '#f55';
+    ctx.shadowColor = '#f55';
+    ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('❤', 0, 5);
+  }
+  ctx.restore();
+});
   // 自弾
   ctx.shadowColor = powerUp ? '#ff6' : '#ff0';
   ctx.shadowBlur = 8;
