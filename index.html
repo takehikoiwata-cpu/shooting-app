@@ -251,7 +251,7 @@ function update() {
     if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
       items.splice(i, 1);
       powerUp = true;
-      powerUpTimer = 600;
+      powerUpTimer = 1800;
       addParticles(player.x, player.y, '#ff0', 15);
     }
   }
@@ -404,11 +404,10 @@ function draw() {
 
   // パワーアップ残り時間表示
   if (powerUp) {
-    ctx.fillStyle = '#ff0';
-    ctx.font = 'bold 13px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, H-10);
-  }
+ctx.fillStyle = '#ff0';
+ctx.font = 'bold 13px monospace';
+ctx.textAlign = 'left';
+ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, 40);  }
 }
 
 function loop() {
