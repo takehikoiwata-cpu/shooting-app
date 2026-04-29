@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -32,7 +33,7 @@ canvas { display: block; }
   <h1>🚀 SHOOTER</h1>
   <p>← → ↑ ↓ キーで移動</p>
   <p>スペースで射撃</p>
-  <p>スマホ：左のスティックで移動、右のボタンで射撃</p>
+  <p>スマホ：左スティックで移動、右ボタンで射撃</p>
   <button id="startBtn">ゲームスタート</button>
 </div>
 <div id="joystick-area">
@@ -49,21 +50,20 @@ canvas.width = W;
 canvas.height = H;
 
 let score, lives, level, gameRunning;
-let player, bullets, enemies, enemyBullets, particles, boss;
+let player, bullets, enemies, enemyBullets, particles, boss, items;
 let keys = {};
 let shooting = false;
 let spawnTimer, bossActive, nextBossScore;
-let items = [];
-let powerUp = false; // 二連射フラグ
-let powerUpTimer = 0; // パワーアップ残り時間
-// ジョイスティック変数（updateより前に定義）
+let powerUp = false;
+let powerUpTimer = 0;
 let joystickActive = false;
 let joystickDX = 0, joystickDY = 0;
 
 function initGame() {
   score = 0; lives = 3; level = 1; gameRunning = false;
-  bullets = []; enemies = []; enemyBullets = []; particles = [];
+  bullets = []; enemies = []; enemyBullets = []; particles = []; items = [];
   boss = null; bossActive = false; spawnTimer = 0; nextBossScore = 300;
+  powerUp = false; powerUpTimer = 0;
   player = { x: W/2, y: H-180, w: 36, h: 36, speed: 5, shootCooldown: 0 };
   updateUI();
 }
@@ -94,11 +94,12 @@ function spawnBoss() {
   bossActive = true;
   const hp = 20 + level * 15;
   boss = { x: W/2, y: 80, w: 72, h: 56, hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3, shootTimer: 0, angle: 0, phase: 1 };
-  
 }
+
 function spawnItem(x, y) {
   items.push({ x, y, w: 20, h: 20, vy: 1.5 });
 }
+
 function addParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
     particles.push({ x, y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 1, color });
@@ -115,8 +116,7 @@ function update() {
   if (keys['ArrowRight']) player.x += player.speed;
   if (keys['ArrowUp'])    player.y -= player.speed;
   if (keys['ArrowDown'])  player.y += player.speed;
-  
-}
+
   // ジョイスティック移動
   if (joystickActive) {
     player.x += joystickDX * player.speed;
@@ -128,17 +128,18 @@ function update() {
 
   // 射撃
   if (keys[' '] || shooting) {
-  if (player.shootCooldown <= 0) {
-    if (powerUp) {
-      // 二連射
-      bullets.push({ x: player.x - 10, y: player.y-20, w: 6, h: 14, speed: 10 });
-      bullets.push({ x: player.x + 10, y: player.y-20, w: 6, h: 14, speed: 10 });
-    } else {
-      bullets.push({ x: player.x, y: player.y-20, w: 6, h: 14, speed: 10 });
+    if (player.shootCooldown <= 0) {
+      if (powerUp) {
+        bullets.push({ x: player.x - 10, y: player.y-20, w: 6, h: 14, speed: 10 });
+        bullets.push({ x: player.x + 10, y: player.y-20, w: 6, h: 14, speed: 10 });
+      } else {
+        bullets.push({ x: player.x, y: player.y-20, w: 6, h: 14, speed: 10 });
+      }
+      player.shootCooldown = 10;
     }
-    player.shootCooldown = 10;
   }
-}
+  if (player.shootCooldown > 0) player.shootCooldown--;
+
   // 自弾移動
   for (let i = bullets.length-1; i >= 0; i--) {
     bullets[i].y -= bullets[i].speed;
@@ -208,13 +209,12 @@ function update() {
         enemies[ei].hp--;
         addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 3);
         if (enemies[ei].hp <= 0) {
-  const pts = {normal:10, fast:20, zigzag:30, tank:40};
-  score += pts[enemies[ei].type] || 10;
-  addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 10);
-  // タンクを倒したらアイテムドロップ
-  if (enemies[ei].type === 'tank') spawnItem(enemies[ei].x, enemies[ei].y);
-  enemies.splice(ei, 1);
-  updateUI();
+          const pts = {normal:10, fast:20, zigzag:30, tank:40};
+          score += pts[enemies[ei].type] || 10;
+          addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 10);
+          if (enemies[ei].type === 'tank') spawnItem(enemies[ei].x, enemies[ei].y);
+          enemies.splice(ei, 1);
+          updateUI();
         }
         break;
       }
@@ -243,23 +243,24 @@ function update() {
     p.life -= 0.04;
     if (p.life <= 0) particles.splice(i, 1);
   }
-// アイテム移動＆取得判定
-for (let i = items.length-1; i >= 0; i--) {
-  items[i].y += items[i].vy;
-  if (items[i].y > H+20) { items.splice(i, 1); continue; }
-  if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
-    items.splice(i, 1);
-    powerUp = true;
-    powerUpTimer = 600; // 約10秒
-    addParticles(player.x, player.y, '#ff0', 15);
-  }
-}
 
-// パワーアップタイマー
-if (powerUp) {
-  powerUpTimer--;
-  if (powerUpTimer <= 0) powerUp = false;
-}
+  // アイテム移動＆取得判定
+  for (let i = items.length-1; i >= 0; i--) {
+    items[i].y += items[i].vy;
+    if (items[i].y > H+20) { items.splice(i, 1); continue; }
+    if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
+      items.splice(i, 1);
+      powerUp = true;
+      powerUpTimer = 600;
+      addParticles(player.x, player.y, '#ff0', 15);
+    }
+  }
+
+  // パワーアップタイマー
+  if (powerUp) {
+    powerUpTimer--;
+    if (powerUpTimer <= 0) powerUp = false;
+  }
 }
 
 function playerHit() {
@@ -284,10 +285,11 @@ function gameOver() {
   `;
   o.style.display = 'block';
   document.getElementById('continueBtn').addEventListener('click', () => {
-    bullets = []; enemies = []; enemyBullets = []; particles = [];
+    bullets = []; enemies = []; enemyBullets = []; particles = []; items = [];
     boss = null; bossActive = false; spawnTimer = 0;
     lives = 3; score = savedScore; level = savedLevel;
     nextBossScore = savedScore + 300 + savedLevel * 100;
+    powerUp = false; powerUpTimer = 0;
     player = { x: W/2, y: H-180, w: 36, h: 36, speed: 5, shootCooldown: 0 };
     gameRunning = true;
     o.style.display = 'none';
@@ -299,10 +301,12 @@ function gameOver() {
 function drawPlayer() {
   ctx.save();
   ctx.translate(player.x, player.y);
-  ctx.fillStyle = '#6af';
+  if (powerUp) { ctx.shadowColor = '#ff0'; ctx.shadowBlur = 16; }
+  ctx.fillStyle = powerUp ? '#ff6' : '#6af';
   ctx.beginPath();
   ctx.moveTo(0,-20); ctx.lineTo(-16,16); ctx.lineTo(0,8); ctx.lineTo(16,16);
   ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
   ctx.fillStyle = 'hsl('+(Date.now()/5%60+20)+',100%,60%)';
   ctx.beginPath();
   ctx.moveTo(-7,12); ctx.lineTo(0,26+Math.random()*6); ctx.lineTo(7,12);
@@ -352,48 +356,59 @@ function drawBoss() {
 function draw() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
+
+  // 星
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 60; i++) {
     const x = (i*137 + Date.now()/20) % W;
     const y = (i*97  + Date.now()/8)  % H;
     ctx.fillRect(x, y, i%4===0?2:1, i%4===0?2:1);
   }
+
   drawPlayer();
   enemies.forEach(drawEnemy);
   if (boss) drawBoss();
-  // アイテム描画
-items.forEach(item => {
-  ctx.save();
-  ctx.translate(item.x, item.y);
-  ctx.fillStyle = '#ff0';
-  ctx.shadowColor = '#ff0';
-  ctx.shadowBlur = 12;
-  ctx.fillRect(-10, -10, 20, 20);
-  ctx.fillStyle = '#000';
-  ctx.font = 'bold 12px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('2x', 0, 4);
-  ctx.shadowBlur = 0;
-  ctx.restore();
-});
 
-// パワーアップ残り時間表示
-if (powerUp) {
-  ctx.fillStyle = '#ff0';
-  ctx.font = '12px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, H-10);
-}
-  ctx.shadowColor = '#ff0'; ctx.shadowBlur = 8;
-  ctx.fillStyle = '#ff0';
+  // アイテム描画
+  items.forEach(item => {
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    ctx.fillStyle = '#ff0';
+    ctx.shadowColor = '#ff0';
+    ctx.shadowBlur = 12;
+    ctx.fillRect(-10, -10, 20, 20);
+    ctx.fillStyle = '#000';
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('2x', 0, 4);
+    ctx.restore();
+  });
+
+  // 自弾
+  ctx.shadowColor = powerUp ? '#ff6' : '#ff0';
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = powerUp ? '#ff6' : '#ff0';
   bullets.forEach(b => ctx.fillRect(b.x-3, b.y-7, 6, 14));
   ctx.shadowBlur = 0;
+
+  // 敵弾
   ctx.shadowColor = '#f55'; ctx.shadowBlur = 6;
   ctx.fillStyle = '#f55';
   enemyBullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill(); });
   ctx.shadowBlur = 0;
+
+  // パーティクル
   particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x-2, p.y-2, 4, 4); });
   ctx.globalAlpha = 1;
+
+  // パワーアップ残り時間表示
+  if (powerUp) {
+    ctx.fillStyle = '#ff0';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, H-10);
+  }
 }
 
 function loop() {
@@ -406,7 +421,6 @@ function startGame() {
   initGame();
   gameRunning = true;
   document.getElementById('overlay').style.display = 'none';
-items = []; powerUp = false; powerUpTimer = 0;
 }
 
 // キーボード
