@@ -53,7 +53,9 @@ let player, bullets, enemies, enemyBullets, particles, boss;
 let keys = {};
 let shooting = false;
 let spawnTimer, bossActive, nextBossScore;
-
+let items = [];
+let powerUp = false; // 二連射フラグ
+let powerUpTimer = 0; // パワーアップ残り時間
 // ジョイスティック変数（updateより前に定義）
 let joystickActive = false;
 let joystickDX = 0, joystickDY = 0;
@@ -92,8 +94,11 @@ function spawnBoss() {
   bossActive = true;
   const hp = 20 + level * 15;
   boss = { x: W/2, y: 80, w: 72, h: 56, hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3, shootTimer: 0, angle: 0, phase: 1 };
+  
 }
-
+function spawnItem(x, y) {
+  items.push({ x, y, w: 20, h: 20, vy: 1.5 });
+}
 function addParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
     particles.push({ x, y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 1, color });
@@ -110,7 +115,8 @@ function update() {
   if (keys['ArrowRight']) player.x += player.speed;
   if (keys['ArrowUp'])    player.y -= player.speed;
   if (keys['ArrowDown'])  player.y += player.speed;
-
+  
+}
   // ジョイスティック移動
   if (joystickActive) {
     player.x += joystickDX * player.speed;
@@ -122,13 +128,17 @@ function update() {
 
   // 射撃
   if (keys[' '] || shooting) {
-    if (player.shootCooldown <= 0) {
+  if (player.shootCooldown <= 0) {
+    if (powerUp) {
+      // 二連射
+      bullets.push({ x: player.x - 10, y: player.y-20, w: 6, h: 14, speed: 10 });
+      bullets.push({ x: player.x + 10, y: player.y-20, w: 6, h: 14, speed: 10 });
+    } else {
       bullets.push({ x: player.x, y: player.y-20, w: 6, h: 14, speed: 10 });
-      player.shootCooldown = 10;
     }
+    player.shootCooldown = 10;
   }
-  if (player.shootCooldown > 0) player.shootCooldown--;
-
+}
   // 自弾移動
   for (let i = bullets.length-1; i >= 0; i--) {
     bullets[i].y -= bullets[i].speed;
@@ -198,11 +208,13 @@ function update() {
         enemies[ei].hp--;
         addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 3);
         if (enemies[ei].hp <= 0) {
-          const pts = {normal:10, fast:20, zigzag:30, tank:40};
-          score += pts[enemies[ei].type] || 10;
-          addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 10);
-          enemies.splice(ei, 1);
-          updateUI();
+  const pts = {normal:10, fast:20, zigzag:30, tank:40};
+  score += pts[enemies[ei].type] || 10;
+  addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 10);
+  // タンクを倒したらアイテムドロップ
+  if (enemies[ei].type === 'tank') spawnItem(enemies[ei].x, enemies[ei].y);
+  enemies.splice(ei, 1);
+  updateUI();
         }
         break;
       }
@@ -231,6 +243,23 @@ function update() {
     p.life -= 0.04;
     if (p.life <= 0) particles.splice(i, 1);
   }
+// アイテム移動＆取得判定
+for (let i = items.length-1; i >= 0; i--) {
+  items[i].y += items[i].vy;
+  if (items[i].y > H+20) { items.splice(i, 1); continue; }
+  if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
+    items.splice(i, 1);
+    powerUp = true;
+    powerUpTimer = 600; // 約10秒
+    addParticles(player.x, player.y, '#ff0', 15);
+  }
+}
+
+// パワーアップタイマー
+if (powerUp) {
+  powerUpTimer--;
+  if (powerUpTimer <= 0) powerUp = false;
+}
 }
 
 function playerHit() {
@@ -332,6 +361,29 @@ function draw() {
   drawPlayer();
   enemies.forEach(drawEnemy);
   if (boss) drawBoss();
+  // アイテム描画
+items.forEach(item => {
+  ctx.save();
+  ctx.translate(item.x, item.y);
+  ctx.fillStyle = '#ff0';
+  ctx.shadowColor = '#ff0';
+  ctx.shadowBlur = 12;
+  ctx.fillRect(-10, -10, 20, 20);
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('2x', 0, 4);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+});
+
+// パワーアップ残り時間表示
+if (powerUp) {
+  ctx.fillStyle = '#ff0';
+  ctx.font = '12px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, H-10);
+}
   ctx.shadowColor = '#ff0'; ctx.shadowBlur = 8;
   ctx.fillStyle = '#ff0';
   bullets.forEach(b => ctx.fillRect(b.x-3, b.y-7, 6, 14));
@@ -354,6 +406,7 @@ function startGame() {
   initGame();
   gameRunning = true;
   document.getElementById('overlay').style.display = 'none';
+items = []; powerUp = false; powerUpTimer = 0;
 }
 
 // キーボード
