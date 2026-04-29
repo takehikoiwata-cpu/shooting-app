@@ -98,7 +98,7 @@ function spawnBoss() {
 
 function spawnItem(x, y, type) {
   items.push({ x, y, w: 20, h: 20, vy: 1.5, type });
-}}
+}
 
 function addParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
@@ -111,13 +111,11 @@ function overlap(a, b) {
 }
 
 function update() {
-  // キーボード移動
   if (keys['ArrowLeft'])  player.x -= player.speed;
   if (keys['ArrowRight']) player.x += player.speed;
   if (keys['ArrowUp'])    player.y -= player.speed;
   if (keys['ArrowDown'])  player.y += player.speed;
 
-  // ジョイスティック移動
   if (joystickActive) {
     player.x += joystickDX * player.speed;
     player.y += joystickDY * player.speed;
@@ -126,7 +124,6 @@ function update() {
   player.x = Math.max(20, Math.min(W-20, player.x));
   player.y = Math.max(20, Math.min(H-20, player.y));
 
-  // 射撃
   if (keys[' '] || shooting) {
     if (player.shootCooldown <= 0) {
       if (powerUp) {
@@ -140,23 +137,19 @@ function update() {
   }
   if (player.shootCooldown > 0) player.shootCooldown--;
 
-  // 自弾移動
   for (let i = bullets.length-1; i >= 0; i--) {
     bullets[i].y -= bullets[i].speed;
     if (bullets[i].y < -20) bullets.splice(i, 1);
   }
 
-  // 敵スポーン
   if (!bossActive) {
     spawnTimer++;
     const interval = Math.max(35, 80 - level*8);
     if (spawnTimer >= interval) { spawnTimer = 0; spawnEnemy(); }
   }
 
-  // ボス出現
   if (!bossActive && score >= nextBossScore && enemies.length === 0) spawnBoss();
 
-  // 敵移動＆射撃
   for (let i = enemies.length-1; i >= 0; i--) {
     const e = enemies[i];
     e.y += e.speed;
@@ -173,7 +166,6 @@ function update() {
     if (overlap(e, { x:player.x, y:player.y, w:28, h:28 })) { enemies.splice(i, 1); playerHit(); }
   }
 
-  // ボス更新
   if (boss) {
     boss.x += boss.dir * boss.speed;
     if (boss.x > W-50 || boss.x < 50) boss.dir *= -1;
@@ -192,7 +184,6 @@ function update() {
     }
   }
 
-  // 敵弾移動
   for (let i = enemyBullets.length-1; i >= 0; i--) {
     const b = enemyBullets[i];
     b.x += b.vx; b.y += b.vy;
@@ -200,7 +191,6 @@ function update() {
     if (overlap(b, { x:player.x, y:player.y, w:28, h:28 })) { enemyBullets.splice(i, 1); playerHit(); }
   }
 
-  // 自弾→敵 衝突
   for (let bi = bullets.length-1; bi >= 0; bi--) {
     let hit = false;
     for (let ei = enemies.length-1; ei >= 0; ei--) {
@@ -212,8 +202,9 @@ function update() {
           const pts = {normal:10, fast:20, zigzag:30, tank:40};
           score += pts[enemies[ei].type] || 10;
           addParticles(enemies[ei].x, enemies[ei].y, enemies[ei].color, 10);
-if (enemies[ei].type === 'tank') spawnItem(enemies[ei].x, enemies[ei].y, 'power');
-if (enemies[ei].type === 'zigzag') spawnItem(enemies[ei].x, enemies[ei].y, 'life');          enemies.splice(ei, 1);
+          if (enemies[ei].type === 'tank') spawnItem(enemies[ei].x, enemies[ei].y, 'power');
+          if (enemies[ei].type === 'zigzag') spawnItem(enemies[ei].x, enemies[ei].y, 'life');
+          enemies.splice(ei, 1);
           updateUI();
         }
         break;
@@ -235,7 +226,6 @@ if (enemies[ei].type === 'zigzag') spawnItem(enemies[ei].x, enemies[ei].y, 'life
     if (hit) bullets.splice(bi, 1);
   }
 
-  // パーティクル
   for (let i = particles.length-1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx; p.y += p.vy;
@@ -244,25 +234,24 @@ if (enemies[ei].type === 'zigzag') spawnItem(enemies[ei].x, enemies[ei].y, 'life
     if (p.life <= 0) particles.splice(i, 1);
   }
 
-  // アイテム移動＆取得判定
   for (let i = items.length-1; i >= 0; i--) {
     items[i].y += items[i].vy;
     if (items[i].y > H+20) { items.splice(i, 1); continue; }
-if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
-  const type = items[i].type;
-  items.splice(i, 1);
-  if (type === 'power') {
-    powerUp = true;
-    powerUpTimer = 1800;
-    addParticles(player.x, player.y, '#ff0', 15);
-  } else if (type === 'life') {
-    lives = Math.min(lives + 1, 5);
-    addParticles(player.x, player.y, '#f55', 15);
-    updateUI();
+    if (overlap(items[i], { x:player.x, y:player.y, w:36, h:36 })) {
+      const type = items[i].type;
+      items.splice(i, 1);
+      if (type === 'power') {
+        powerUp = true;
+        powerUpTimer = 1800;
+        addParticles(player.x, player.y, '#ff0', 15);
+      } else if (type === 'life') {
+        lives = Math.min(lives + 1, 5);
+        addParticles(player.x, player.y, '#f55', 15);
+        updateUI();
+      }
+    }
   }
-}  }
 
-  // パワーアップタイマー
   if (powerUp) {
     powerUpTimer--;
     if (powerUpTimer <= 0) powerUp = false;
@@ -363,7 +352,6 @@ function draw() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
 
-  // 星
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 60; i++) {
     const x = (i*137 + Date.now()/20) % W;
@@ -375,56 +363,53 @@ function draw() {
   enemies.forEach(drawEnemy);
   if (boss) drawBoss();
 
-  // アイテム描画
-items.forEach(item => {
-  ctx.save();
-  ctx.translate(item.x, item.y);
-  if (item.type === 'power') {
-    ctx.fillStyle = '#ff0';
-    ctx.shadowColor = '#ff0';
-    ctx.shadowBlur = 12;
-    ctx.fillRect(-10, -10, 20, 20);
-    ctx.fillStyle = '#000';
-    ctx.shadowBlur = 0;
-    ctx.font = 'bold 12px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('2x', 0, 4);
-  } else if (item.type === 'life') {
-    ctx.fillStyle = '#f55';
-    ctx.shadowColor = '#f55';
-    ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.shadowBlur = 0;
-    ctx.font = 'bold 13px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('❤', 0, 5);
-  }
-  ctx.restore();
-});
-  // 自弾
+  items.forEach(item => {
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    if (item.type === 'power') {
+      ctx.fillStyle = '#ff0';
+      ctx.shadowColor = '#ff0';
+      ctx.shadowBlur = 12;
+      ctx.fillRect(-10, -10, 20, 20);
+      ctx.fillStyle = '#000';
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('2x', 0, 4);
+    } else if (item.type === 'life') {
+      ctx.fillStyle = '#f55';
+      ctx.shadowColor = '#f55';
+      ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('❤', 0, 5);
+    }
+    ctx.restore();
+  });
+
   ctx.shadowColor = powerUp ? '#ff6' : '#ff0';
   ctx.shadowBlur = 8;
   ctx.fillStyle = powerUp ? '#ff6' : '#ff0';
   bullets.forEach(b => ctx.fillRect(b.x-3, b.y-7, 6, 14));
   ctx.shadowBlur = 0;
 
-  // 敵弾
   ctx.shadowColor = '#f55'; ctx.shadowBlur = 6;
   ctx.fillStyle = '#f55';
   enemyBullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill(); });
   ctx.shadowBlur = 0;
 
-  // パーティクル
   particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x-2, p.y-2, 4, 4); });
   ctx.globalAlpha = 1;
 
-  // パワーアップ残り時間表示
   if (powerUp) {
-ctx.fillStyle = '#ff0';
-ctx.font = 'bold 13px monospace';
-ctx.textAlign = 'left';
-ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, 58);  }
+    ctx.fillStyle = '#ff0';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, 58);
+  }
 }
 
 function loop() {
@@ -439,16 +424,13 @@ function startGame() {
   document.getElementById('overlay').style.display = 'none';
 }
 
-// キーボード
 document.addEventListener('keydown', e => { keys[e.key] = true; if(e.key===' ') e.preventDefault(); });
 document.addEventListener('keyup',   e => { keys[e.key] = false; });
 
-// 射撃ボタン
 const fireBtn = document.getElementById('ctrl-fire');
 fireBtn.addEventListener('touchstart', e => { e.preventDefault(); shooting = true; }, {passive:false});
 fireBtn.addEventListener('touchend',   e => { e.preventDefault(); shooting = false; }, {passive:false});
 
-// ジョイスティック
 const joystickArea = document.getElementById('joystick-area');
 const stick = document.getElementById('joystick-stick');
 
