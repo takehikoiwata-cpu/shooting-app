@@ -56,6 +56,7 @@ let shooting = false;
 let spawnTimer, bossActive, nextBossScore;
 let powerUp = false;
 let powerUpTimer = 0;
+let bossAlertTimer = 0;
 let joystickActive = false;
 let joystickDX = 0, joystickDY = 0;
 
@@ -63,7 +64,7 @@ function initGame() {
   score = 0; lives = 3; level = 1; gameRunning = false;
   bullets = []; enemies = []; enemyBullets = []; particles = []; items = [];
   boss = null; bossActive = false; spawnTimer = 0; nextBossScore = 300;
-  powerUp = false; powerUpTimer = 0;
+  powerUp = false; powerUpTimer = 0; bossAlertTimer = 0;
   player = { x: W/2, y: H-180, w: 36, h: 36, speed: 5, shootCooldown: 0 };
   updateUI();
 }
@@ -93,7 +94,9 @@ function spawnEnemy() {
 function spawnBoss() {
   bossActive = true;
   const hp = 20 + level * 15;
-  boss = { x: W/2, y: 80, w: 72, h: 56, hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3, shootTimer: 0, angle: 0, phase: 1 };
+  const bossType = ((level - 1) % 5) + 1;
+  const names = ['', 'HEXAGON', 'U.F.O.', 'ARACHNO', 'CYCLOPS', 'DRAGON'];
+  boss = { x: W/2, y: 80, w: 72, h: 56, hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3, shootTimer: 0, angle: 0, phase: 1, type: bossType, name: names[bossType] };
 }
 
 function spawnItem(x, y, type) {
@@ -148,7 +151,7 @@ function update() {
     if (spawnTimer >= interval) { spawnTimer = 0; spawnEnemy(); }
   }
 
-  if (!bossActive && score >= nextBossScore && enemies.length === 0) spawnBoss();
+  if (!bossActive && score >= nextBossScore && enemies.length === 0) { spawnBoss(); bossAlertTimer = 120; }
 
   for (let i = enemies.length-1; i >= 0; i--) {
     const e = enemies[i];
@@ -332,19 +335,131 @@ function drawEnemy(e) {
 function drawBoss() {
   ctx.save();
   ctx.translate(boss.x, boss.y);
-  ctx.fillStyle = 'hsl('+(Date.now()/20%360)+',80%,50%)';
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const a = i/6*Math.PI*2 + boss.angle;
-    const r = i%2===0 ? 36 : 20;
-    i===0 ? ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r) : ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+  const hue = Date.now() / 20 % 360;
+
+  if (boss.type === 1) {
+    // Hexagon Star
+    ctx.fillStyle = `hsl(${hue},80%,50%)`;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = i/6*Math.PI*2 + boss.angle;
+      const r = i%2===0 ? 36 : 20;
+      i===0 ? ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r) : ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#fff3'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
+
+  } else if (boss.type === 2) {
+    // UFO
+    ctx.fillStyle = `hsl(${hue},60%,35%)`;
+    ctx.beginPath(); ctx.ellipse(0, 10, 42, 14, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `hsl(${hue},70%,65%)`;
+    ctx.beginPath(); ctx.ellipse(0, -2, 24, 20, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#aef8';
+    ctx.beginPath(); ctx.ellipse(-6, -8, 10, 8, -0.3, 0, Math.PI*2); ctx.fill();
+    for (let i = 0; i < 7; i++) {
+      const a = i/7*Math.PI*2 + boss.angle;
+      ctx.fillStyle = i%2===0 ? '#f44' : '#ff0';
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(Math.cos(a)*34, Math.sin(a)*10+10, 4, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+  } else if (boss.type === 3) {
+    // Spider
+    ctx.strokeStyle = `hsl(${hue},60%,45%)`;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 8; i++) {
+      const a = i/8*Math.PI*2 + boss.angle * 0.3;
+      const mx = Math.cos(a)*28, my = Math.sin(a)*28;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*18, Math.sin(a)*18);
+      ctx.lineTo(mx, my);
+      ctx.lineTo(mx + Math.cos(a+0.7)*22, my + Math.sin(a+0.7)*22);
+      ctx.stroke();
+    }
+    ctx.fillStyle = `hsl(${hue},75%,35%)`;
+    ctx.beginPath(); ctx.ellipse(0, 6, 18, 14, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `hsl(${hue},80%,45%)`;
+    ctx.beginPath(); ctx.arc(0, -10, 16, 0, Math.PI*2); ctx.fill();
+    ctx.shadowColor = '#f00'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#f00';
+    for (let i = -1; i <= 1; i+=2) {
+      ctx.beginPath(); ctx.arc(i*7, -12, 5, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle = '#ff0';
+    for (let i = -1; i <= 1; i+=2) {
+      ctx.beginPath(); ctx.arc(i*7, -12, 2, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+  } else if (boss.type === 4) {
+    // Cyclops Eye
+    ctx.strokeStyle = `hsl(${hue},60%,45%)`;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 6; i++) {
+      const a = i/6*Math.PI*2;
+      const ox = Math.cos(a)*36, oy = Math.sin(a)*26;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + Math.cos(a+boss.angle)*18, oy + Math.sin(a+boss.angle)*18);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#e8e8e8';
+    ctx.beginPath(); ctx.ellipse(0, 0, 38, 28, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `hsl(${hue},90%,38%)`;
+    const ex = Math.cos(boss.angle)*8, ey = Math.sin(boss.angle*0.7)*8;
+    ctx.beginPath(); ctx.arc(ex, ey, 17, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(ex, ey, 9, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff9';
+    ctx.beginPath(); ctx.arc(ex-4, ey-5, 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#666'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(0, 0, 38, 28, 0, 0, Math.PI*2); ctx.stroke();
+
+  } else {
+    // Dragon
+    ctx.fillStyle = `hsl(${hue},65%,28%)`;
+    ctx.beginPath(); ctx.arc(0, 4, 30, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `hsl(${hue},70%,42%)`;
+    ctx.beginPath();
+    ctx.moveTo(-20, -18); ctx.lineTo(-30, -50+Math.sin(boss.angle)*4); ctx.lineTo(-8, -20);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(20, -18); ctx.lineTo(30, -50+Math.sin(boss.angle)*4); ctx.lineTo(8, -20);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `hsl(${hue},60%,55%)`;
+    ctx.beginPath(); ctx.ellipse(0, 6, 22, 16, 0, 0, Math.PI*2); ctx.fill();
+    ctx.shadowColor = '#f00'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#f22';
+    ctx.beginPath(); ctx.ellipse(-11, -6, 8, 6, -0.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(11, -6, 8, 6, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ff0';
+    ctx.beginPath(); ctx.arc(-11, -6, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(11, -6, 3, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#eee';
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i*9-3, 22); ctx.lineTo(i*9, 36+Math.sin(boss.angle+i)*3); ctx.lineTo(i*9+3, 22);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = `hsl(${hue},70%,45%)`;
+    ctx.beginPath();
+    ctx.moveTo(-30, 10); ctx.lineTo(-50, 20+Math.sin(boss.angle)*6); ctx.lineTo(-28, 20);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(30, 10); ctx.lineTo(50, 20+Math.sin(boss.angle)*6); ctx.lineTo(28, 20);
+    ctx.closePath(); ctx.fill();
   }
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#fff3'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#300'; ctx.fillRect(-36,44,72,8);
-  ctx.fillStyle='#f00'; ctx.fillRect(-36,44,72*(boss.hp/boss.maxHp),8);
+
+  // HP bar (共通)
+  ctx.fillStyle='#300'; ctx.fillRect(-36,46,72,8);
+  ctx.fillStyle='#f00'; ctx.fillRect(-36,46,72*(boss.hp/boss.maxHp),8);
   ctx.fillStyle='#fff'; ctx.font='11px monospace'; ctx.textAlign='center';
-  ctx.fillText('BOSS HP: '+boss.hp, 0, 66);
+  ctx.fillText('⚠ ' + boss.name + ' HP:' + boss.hp, 0, 68);
   ctx.restore();
 }
 
@@ -409,6 +524,20 @@ function draw() {
     ctx.font = 'bold 13px monospace';
     ctx.textAlign = 'left';
     ctx.fillText('⚡ 2連射: ' + Math.ceil(powerUpTimer/60) + 's', 10, 58);
+  }
+
+  if (bossAlertTimer > 0) {
+    bossAlertTimer--;
+    const alpha = Math.min(1, bossAlertTimer / 30) * (bossAlertTimer % 20 < 10 ? 1 : 0.3);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#f44';
+    ctx.font = 'bold 28px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ BOSS: ' + (boss ? boss.name : '') + ' ⚠', W/2, H/2 - 10);
+    ctx.font = 'bold 14px monospace';
+    ctx.fillStyle = '#faa';
+    ctx.fillText('LEVEL ' + level, W/2, H/2 + 18);
+    ctx.globalAlpha = 1;
   }
 }
 
