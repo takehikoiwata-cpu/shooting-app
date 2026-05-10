@@ -20,6 +20,12 @@ canvas { display: block; }
 #joystick-base { width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); position: absolute; }
 #joystick-stick { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.4); border: 2px solid rgba(255,255,255,0.6); position: absolute; top: 35px; left: 35px; pointer-events: none; }
 #ctrl-fire { position: fixed; bottom: 45px; right: 40px; width: 80px; height: 80px; border-radius: 50%; background: rgba(99,102,241,0.5); border: 2px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; font-size: 28px; color: #fff; pointer-events: all; z-index: 10; user-select: none; }
+#diff-select { margin: 10px 0 4px; }
+.diff-btn { padding: 7px 16px; margin: 3px; background: #222; color: #777; border: 2px solid #444; border-radius: 6px; font-family: monospace; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; }
+.diff-btn[data-diff="1"].active { background: #0f3320; color: #4ade80; border-color: #4ade80; }
+.diff-btn[data-diff="2"].active { background: #3a2c00; color: #fbbf24; border-color: #fbbf24; }
+.diff-btn[data-diff="3"].active { background: #3d0f0f; color: #f87171; border-color: #f87171; }
+#diff-label { color: #888; font-size: 0.8rem; margin-bottom: 2px; }
 </style>
 </head>
 <body>
@@ -34,6 +40,12 @@ canvas { display: block; }
   <p>← → ↑ ↓ キーで移動</p>
   <p>スペースで射撃</p>
   <p>スマホ：左スティックで移動、右ボタンで射撃</p>
+  <p id="diff-label">── 難易度 ──</p>
+  <div id="diff-select">
+    <button class="diff-btn" data-diff="1">EASY</button>
+    <button class="diff-btn active" data-diff="2">NORMAL</button>
+    <button class="diff-btn" data-diff="3">HARD</button>
+  </div>
   <button id="startBtn">ゲームスタート</button>
 </div>
 <div id="joystick-area">
@@ -59,12 +71,20 @@ let powerUpTimer = 0;
 let bossAlertTimer = 0;
 let joystickActive = false;
 let joystickDX = 0, joystickDY = 0;
+let difficulty = 2; // 1=EASY 2=NORMAL 3=HARD
+let savedGameState = null;
+
+const DIFF = {
+  1: { lives: 5, speedMult: 0.70, shootBase: 100, hpMult: 0.70, label: 'EASY'   },
+  2: { lives: 3, speedMult: 1.00, shootBase: 60,  hpMult: 1.00, label: 'NORMAL' },
+  3: { lives: 2, speedMult: 1.35, shootBase: 38,  hpMult: 1.40, label: 'HARD'   },
+};
 
 function initGame() {
-  score = 0; lives = 3; level = 1; gameRunning = false;
+  score = 0; lives = DIFF[difficulty].lives; level = 1; gameRunning = false;
   bullets = []; enemies = []; enemyBullets = []; particles = []; items = [];
   boss = null; bossActive = false; spawnTimer = 0; nextBossScore = 300;
-  powerUp = false; powerUpTimer = 0; bossAlertTimer = 0;
+  powerUp = false; powerUpTimer = 0; bossAlertTimer = 0; savedGameState = null;
   player = { x: W/2, y: H-180, w: 36, h: 36, speed: 5, shootCooldown: 0 };
   updateUI();
 }
@@ -82,18 +102,20 @@ function spawnEnemy() {
   for (let i = 0; i < types.length; i++) { acc += weights[i]; if (r < acc) { type = types[i]; break; } }
   const colors = { normal:'#f55', fast:'#fa0', zigzag:'#a5f', tank:'#5af' };
   const hps = { normal:1, fast:1, zigzag:2, tank:4 };
-  const speeds = { normal:1.5+level*0.2, fast:3+level*0.1, zigzag:1.5, tank:0.8 };
+  const sm = DIFF[difficulty].speedMult;
+  const sb = DIFF[difficulty].shootBase;
+  const speeds = { normal:(1.5+level*0.2)*sm, fast:(3+level*0.1)*sm, zigzag:1.5*sm, tank:0.8*sm };
   enemies.push({
     x: 30 + Math.random() * (W-60), y: -30,
     w: 32, h: 32, type, color: colors[type],
     hp: hps[type], maxHp: hps[type],
-    speed: speeds[type], shootTimer: 60 + Math.random()*60
+    speed: speeds[type], shootTimer: sb + Math.random()*sb
   });
 }
 
 function spawnBoss() {
   bossActive = true;
-  const hp = 20 + level * 15;
+  const hp = Math.floor((20 + level * 15) * DIFF[difficulty].hpMult);
   const bossType = ((level - 1) % 5) + 1;
   const names = ['', 'HEXAGON', 'U.F.O.', 'ARACHNO', 'CYCLOPS', 'DRAGON'];
   boss = { x: W/2, y: 80, w: 72, h: 56, hp, maxHp: hp, dir: 1, speed: 1.5 + level*0.3, shootTimer: 0, angle: 0, phase: 1, type: bossType, name: names[bossType] };
@@ -270,24 +292,41 @@ function playerHit() {
 
 function gameOver() {
   gameRunning = false;
-  const savedScore = score;
-  const savedLevel = level;
+  savedGameState = {
+    enemies:      JSON.parse(JSON.stringify(enemies)),
+    boss:         boss ? JSON.parse(JSON.stringify(boss)) : null,
+    enemyBullets: JSON.parse(JSON.stringify(enemyBullets)),
+    items:        JSON.parse(JSON.stringify(items)),
+    bossActive, spawnTimer, nextBossScore,
+    powerUp, powerUpTimer,
+    score, level,
+  };
   const o = document.getElementById('overlay');
   o.innerHTML = `
     <h1>GAME OVER</h1>
     <p>SCORE: ${score}</p>
-    <p>LEVEL: ${level}</p>
+    <p>LEVEL: ${level} &nbsp;|&nbsp; ${DIFF[difficulty].label}</p>
     <button id="continueBtn">コンティニュー</button>
-    <br><br>
+    <p style="color:#666;font-size:0.75rem;margin-top:4px">敵の配置はそのまま復活</p>
+    <br>
     <button id="startBtn">最初から</button>
   `;
   o.style.display = 'block';
   document.getElementById('continueBtn').addEventListener('click', () => {
-    bullets = []; enemies = []; enemyBullets = []; particles = []; items = [];
-    boss = null; bossActive = false; spawnTimer = 0;
-    lives = 3; score = savedScore; level = savedLevel;
-    nextBossScore = savedScore + 300 + savedLevel * 100;
-    powerUp = false; powerUpTimer = 0;
+    const s = savedGameState;
+    enemies      = s.enemies;
+    boss         = s.boss;
+    enemyBullets = s.enemyBullets;
+    items        = s.items;
+    bossActive   = s.bossActive;
+    spawnTimer   = s.spawnTimer;
+    nextBossScore= s.nextBossScore;
+    powerUp      = s.powerUp;
+    powerUpTimer = s.powerUpTimer;
+    score        = s.score;
+    level        = s.level;
+    bullets = []; particles = [];
+    lives = DIFF[difficulty].lives;
     player = { x: W/2, y: H-180, w: 36, h: 36, speed: 5, shootCooldown: 0 };
     gameRunning = true;
     o.style.display = 'none';
@@ -593,6 +632,15 @@ joystickArea.addEventListener('touchend', e => {
 }, {passive:false});
 
 document.getElementById('startBtn').addEventListener('click', startGame);
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    difficulty = Number(btn.dataset.diff);
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
 initGame();
 loop();
 </script>
